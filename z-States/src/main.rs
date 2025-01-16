@@ -20,32 +20,46 @@ enum DoorState {
 enum PassengerState {
     Idle(i32),
     Entering,
-    ChoosingFloor(i32),
+    // ChoosingFloor(i32),
     InCabin,
     Exiting(i32),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Direction_ {
+    UP,
+    DOWN,
 }
 
 #[derive(Debug)]
 struct Passenger {
     id: usize,
     state: PassengerState,
+    direction: Direction_,
+    destination: i32,
 }
 
 impl Passenger {
-    fn new(id: usize, floor: i32) -> Self {
+    fn new(id: usize, floor: i32, destination_floor: i32) -> Self {
         Passenger {
             id,
             state: PassengerState::Idle(floor),
+            destination: destination_floor,
+            direction: if floor < destination_floor {
+                Direction_::UP
+            } else {
+                Direction_::DOWN
+            },
         }
     }
 
-    fn destination(&self) -> Option<i32> {
-        if let PassengerState::ChoosingFloor(dest) = self.state {
-            Some(dest)
-        } else {
-            None
-        }
-    }
+    //fn destination(&self) -> Option<i32> {
+    //    if let PassengerState::ChoosingFloor(dest) = self.state {
+    //        Some(dest)
+    //    } else {
+    //        None
+    //    }
+    //}
 }
 
 #[derive(Debug)]
@@ -87,7 +101,11 @@ impl Elevator {
                 }
             }
             CabinState::Moving(current, target) => {
-                let new_floor = if current < target { current + 1 } else { current - 1 };
+                let new_floor = if current < target {
+                    current + 1
+                } else {
+                    current - 1
+                };
                 if new_floor == target {
                     self.cabin_state = CabinState::Holding(target);
                 } else {
@@ -109,23 +127,45 @@ impl Elevator {
                 }
                 DoorState::Closed => {
                     self.door_state = DoorState::Opening;
-                },
+                }
             },
+        }
+        for passenger in &self.passengers {
+            if let PassengerState::Idle = passenger.state {
+                match self.cabin_state.clone() {
+                    CabinState::Standing(floor) => {
+                        self.destinations.push_back(passenger.destination);
+                    }
+                    CabinState::Moving(start, end) =>
+                        if (end - start > 0) {
+
+                    },
+
+                    // hochfahren -> end > start
+                    //      dst > current -> get onboard
+
+                    // runterfahren -> start > end
+                    //      dst < current -> get onboard
+
+                    // if dst == current
+                    //      get out!
+
+                }
+            }
         }
     }
 
     fn handle_passenger_exchange(&mut self, current_floor: i32) {
         // Passengers exiting
-        self.passengers.retain(|passenger| {
-            if let PassengerState::InCabin = passenger.state {
-                if let Some(target) = passenger.destination() {
-                    if target == current_floor {
-                        println!("Passenger {} exiting at floor {}", passenger.id, current_floor);
-                        return false; // Remove passenger from cabin
-                    }
-                }
-            }
-            true
+        self.passengers.retain(|passenger|{
+            if PassengerState::InCabin == passenger.state && passenger.destination == current_floor
+            {
+                println!(
+                    "Passenger {} exiting at floor {}",
+                    passenger.id, current_floor
+                );
+                return false;
+            }else { return true; }
         });
 
         // Passengers entering and collecting new destinations
@@ -134,16 +174,19 @@ impl Elevator {
             if let PassengerState::Idle(floor) = passenger.state {
                 if floor == current_floor {
                     passenger.state = PassengerState::Entering;
-                    println!("Passenger {} entering at floor {}", passenger.id, current_floor);
-                    passenger.state = PassengerState::ChoosingFloor(rand::thread_rng().gen_range(0..4));
+                    println!(
+                        "Passenger {} entering at floor {}",
+                        passenger.id, current_floor
+                    );
+                    // Fliegt raus? - passenger.state = PassengerState::ChoosingFloor(rand::thread_rng().gen_range(0..4));
                 }
             }
 
             // Add new destinations for entered passengers
-            if let PassengerState::ChoosingFloor(dest) = passenger.state {
-                passenger.state = PassengerState::InCabin;
-                new_destinations.push(dest);
-            }
+            //if let PassengerState::ChoosingFloor(dest) = passenger.state {
+            //    passenger.state = PassengerState::InCabin;
+            new_destinations.push(passenger.destination);
+            //}
         }
 
         // After looping over passengers, add new destinations to the elevator
@@ -151,7 +194,6 @@ impl Elevator {
             self.add_destination(dest);
         }
     }
-
 }
 
 struct ControlSystem {
@@ -175,21 +217,28 @@ impl ControlSystem {
 
     fn add_random_passenger(&mut self) {
         let floor = rand::thread_rng().gen_range(0..4);
-        self.passengers
-            .push(Passenger::new(self.passenger_counter, floor));
+        let mut destination_floor = rand::thread_rng().gen_range(0..4);
+        while floor == destination_floor {
+            destination_floor = rand::thread_rng().gen_range(0..4);
+        }
+        self.passengers.push(Passenger::new(
+            self.passenger_counter,
+            floor,
+            destination_floor,
+        ));
         self.passenger_counter += 1;
     }
 
     fn assign_passengers_to_elevators(&mut self) {
         for passenger in &self.passengers {
             if let PassengerState::Idle(starting_floor) = passenger.state {
-                let nearest_elevator = self
-                    .elevators
-                    .iter_mut()
-                    .min_by_key(|e| match e.cabin_state {
-                        CabinState::Standing(floor) => (floor - starting_floor).abs(),
-                        _ => i32::MAX,
-                    });
+                let nearest_elevator =
+                    self.elevators
+                        .iter_mut()
+                        .min_by_key(|e| match e.cabin_state {
+                            CabinState::Standing(floor) => (floor - starting_floor).abs(),
+                            _ => i32::MAX,
+                        });
                 if let Some(elevator) = nearest_elevator {
                     elevator.add_destination(starting_floor);
                 }
@@ -223,7 +272,11 @@ fn main() {
         for (i, elevator) in control_system.elevators.iter().enumerate() {
             println!(
                 "Elevator {} - Cabin: {:?}, Doors: {:?}, Passengers: {:?}, Destinations: {:?}",
-                i, elevator.cabin_state, elevator.door_state, elevator.passengers, elevator.destinations
+                i,
+                elevator.cabin_state,
+                elevator.door_state,
+                elevator.passengers,
+                elevator.destinations
             );
         }
         println!("Passengers: {:?}", control_system.passengers);
