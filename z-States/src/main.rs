@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use ggez::{Context, GameResult, graphics::{self, Color, Text}, event};
 use ggez::glam::Vec2;
 
+// Definition of cabin states 
 #[derive(Debug, Clone, PartialEq)]
 enum CabinState {
     Standing(i32),
@@ -10,6 +11,7 @@ enum CabinState {
     Holding(i32),
 }
 
+// Definition of door states
 #[derive(Debug, Clone, PartialEq)]
 enum DoorState {
     Closed,
@@ -18,6 +20,7 @@ enum DoorState {
     Closing,
 }
 
+// Definition of passenger states
 #[derive(Debug, Clone, PartialEq)]
 enum PassengerState {
     Idle(i32),
@@ -27,12 +30,14 @@ enum PassengerState {
     Exiting,
 }
 
+// Definition of movement directions
 #[derive(Debug, Clone, PartialEq)]
 enum Direction_ {
     UP,
     DOWN,
 }
 
+// Structure for passenger
 #[derive(Debug, Clone)]
 struct Passenger {
     id: usize,
@@ -41,12 +46,15 @@ struct Passenger {
     destination: i32,
 }
 
+// Implementation of passenger functionality
 impl Passenger {
     fn new(id: usize, floor: i32, destination_floor: i32) -> Self {
         Passenger {
             id,
             state: PassengerState::Idle(floor),
             destination: destination_floor,
+
+            // Direction of passenger is based on start and destination floors
             direction: if floor < destination_floor {
                 Direction_::UP
             } else {
@@ -64,6 +72,7 @@ impl Passenger {
     //}
 }
 
+// Structure for an elevator
 #[derive(Debug)]
 struct Elevator {
     cabin_state: CabinState,
@@ -75,6 +84,7 @@ struct Elevator {
     door_timer: u32,
 }
 
+// Implementation of elevator functionality
 impl Elevator {
     fn new(starting_floor: i32) -> Self {
         Elevator {
@@ -88,10 +98,12 @@ impl Elevator {
         }
     }
 
+    // Checks if elevator is full
     fn is_full(&self) -> bool {
         self.passengers.len() >= self.max_capacity
     }
 
+    // Sorts destination floors in optimal order
     fn sort_destinations(&mut self) {
         if let Some(current_floor) = match self.cabin_state {
             CabinState::Standing(f) | CabinState::Holding(f) => Some(f),
@@ -140,6 +152,7 @@ impl Elevator {
         }
     }
 
+    // Adds a new destination floor
     fn add_destination(&mut self, floor: i32) {
         if !self.destinations.contains(&floor) {
             self.destinations.push_back(floor);
@@ -147,8 +160,11 @@ impl Elevator {
         }
     }
 
+    // SIMULATION
+    // Executes a simulation step
     fn step(&mut self) {
         match self.cabin_state.clone() {
+            // When elevator is standing
             CabinState::Standing(floor) => {
                 if self.door_state == DoorState::Closed {
                     if let Some(&next_floor) = self.destinations.front() {
@@ -170,6 +186,7 @@ impl Elevator {
                     }
                 }
             }
+            // When elevator is moving
             CabinState::Moving(current, target) => {
                 let new_floor = if current < target {
                     current + 1
@@ -189,6 +206,7 @@ impl Elevator {
                     self.cabin_state = CabinState::Standing(new_floor);
                 }
             }
+            // When elevator is holding for passenger exchange
             CabinState::Holding(floor) => match self.door_state {
                 DoorState::Opening => {
                     self.door_state = DoorState::Open;
@@ -260,12 +278,15 @@ impl Elevator {
     }
 }
 
+// Structure for the control system
 struct ControlSystem {
     passengers: Vec<Passenger>,
     elevators: Vec<Elevator>,
     passenger_counter: usize,
 }
 
+
+// Implementation of control system functionality
 impl ControlSystem {
     fn new(num_elevators: usize) -> Self {
         let elevators = (0..num_elevators)
@@ -279,6 +300,7 @@ impl ControlSystem {
         }
     }
 
+    // Adds a random passenger
     fn add_random_passenger(&mut self) {
         let floor = rand::thread_rng().gen_range(0..4);
         let mut destination_floor = rand::thread_rng().gen_range(0..4);
@@ -293,6 +315,7 @@ impl ControlSystem {
         self.passenger_counter += 1;
     }
 
+    // Executes a simulation step
     fn step(&mut self) {
         // Add new random passenger with lower probability
         if rand::thread_rng().gen_bool(0.2) {
@@ -341,6 +364,7 @@ impl ControlSystem {
         }
     }
 
+    // Assigns waiting passengers to elevators
     fn assign_passengers_to_elevators(&mut self) {
         for passenger in &self.passengers {
             if let PassengerState::Idle(floor) = passenger.state {
