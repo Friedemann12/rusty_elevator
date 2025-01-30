@@ -25,6 +25,13 @@
     - Steuert die Logik, insbesondere von Interaktion zwischen Passagieren und Aufzügen
     - Beispielsweise das Erzeugen von Passagieren und zuweisen zu den Fahrstühlen
 
-- Schrittweise Simulation durch step Methoden
+- Schrittweise Simulation durch "step" Methoden
+    - Simulation wird so reproduzierbarer
+    - Klare Schnittstellen für die Simulation
+    - Klare Reihenfolge in der Simulation: Gamelogic -> Elevator
+    - Sinnvolles Pattern für die "Game-Loop" der Visualisierung
 
 - Optimierung der Steuerung indem Ziele beispielsweise sortiert werden
+    - Fährt alle Ziele in einer Richtung ab
+    - Richtungswechsel werden möglichst vermieden
+    - Sinnvoll hinsichtlich zeitlicher Optimierungen und Fairness
