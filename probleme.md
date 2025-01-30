@@ -31,7 +31,7 @@
 - Schrittweise Simulation durch "step" Methoden
     - Simulation wird so reproduzierbarer
     - Klare Schnittstellen für die Simulation
-    - Klare Reihenfolge in der Simulation: Gamelogic -> Elevator
+    - Klare Reihenfolge in der Simulation: Kontrollsystem -> Fahrstuhl
     - Sinnvolles Pattern für die "Game-Loop" der Visualisierung
 
 - Optimierung der Steuerung indem Ziele beispielsweise in eigener Methode sortiert werden
